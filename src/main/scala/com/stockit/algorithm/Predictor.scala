@@ -1,9 +1,13 @@
 package com.stockit.algorithm
 
+import weka.core.{Instance, Instances}
+
+import scala.collection.mutable
+
 /**
  * Created by jmcconnell1 on 4/12/15.
  */
-class Predictor(train: List[AnyVal], test: List[AnyVal]) {
+class Predictor(searcher: Searcher, train: Instances, test: Instances, trainMeta: Any, testMeta: Any) {
     def accuracy = {
         correct_count / test.size
     }
@@ -21,24 +25,33 @@ class Predictor(train: List[AnyVal], test: List[AnyVal]) {
     }
 
     def historic_outcomes = {
-        test.map(doc => {
-            // doc.percentage_change
-            0.30
+        map_instances(test, doc => {
+            0.3 // testMeta[index]['percentage_change]
         })
     }
 
     def predictions = {
-        test.map(doc => {
-            // val neighbors = Knn nearest neighbors
-            // val percentage_changes = neighbors.map(neighbor => neighbor.percentage_change)
-            // val mean = arithmetic_mean(percentage_changes)
-            // if (mean > 0) {
-            //  'positive
-            // else {
-            //  'negative
-            // }
-            'test
+        map_instances(test, doc => {
+            val neighbors = searcher.fetchNeighbors(doc)
+            val percentage_changes = map_instances(neighbors, instance => {
+                0.3 // testMeta[index]['percentage_change]
+            })
+            val mean = arithmetic_mean(percentage_changes)
+            if (mean > 0.0) {
+                'positive
+            } else {
+                'negative
+            }
         })
+    }
+
+    def map_instances[T](instances: Instances, func: (Instance => T)) = {
+        var list: mutable.MutableList[T] = mutable.MutableList()
+        for(x <- 0 until instances.size) {
+            val instance = instances.get(x)
+            list += func(instance)
+        }
+        list
     }
 
     def arithmetic_mean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
