@@ -30,7 +30,7 @@ object Client {
         }
     }
 
-    def neighbors(doc: SolrDocument, number: Int) = {
+    def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int) = {
         val request = neighborQuery(doc, number)
         try {
             val response = client.doQuery(request)
@@ -41,6 +41,20 @@ object Client {
                 throw e
             }
         }
+    }
+
+    def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
+        var query = doc.get("content").toString().replaceAll("[^\\s\\d\\w]+", "")
+        query = query.substring(0, List(50, query.length).min)
+        val request = new QueryRequest(Query(query))
+        request.remove("wt")
+        request.remove("start")
+        request.set("wt", "json")
+        request.setMaximumRowsReturned(new MaximumRowsReturned(count))
+        request.set("ft", trainDocs.foldRight((doc: SolrDocument, string: String) => {
+            s""
+        }))
+        request
     }
 
     def sortedByDate() = {
@@ -54,17 +68,6 @@ object Client {
                 throw e
             }
         }
-    }
-
-    def neighborQuery(doc: SolrDocument, count: Int) = {
-        var query = doc.get("content").toString().replaceAll("[^\\s\\d\\w]+", "")
-        query = query.substring(0, List(50, query.length).min)
-        val request = new QueryRequest(Query(query))
-        request.remove("wt")
-        request.remove("start")
-        request.set("wt", "json")
-        request.setMaximumRowsReturned(new MaximumRowsReturned(count))
-        request
     }
 
     def sortedByDateQuery = {
