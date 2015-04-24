@@ -1,5 +1,6 @@
 package com.stockit.algorithm
 
+import com.github.seratch.scalikesolr.SolrDocument
 import weka.core.{Instance, Instances}
 
 import scala.collection.mutable
@@ -7,36 +8,46 @@ import scala.collection.mutable
 /**
  * Created by jmcconnell1 on 4/12/15.
  */
-class Predictor(searcher: Searcher, train: Instances, test: Instances, trainMeta: Any, testMeta: Any) {
+class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDocument]) {
     def accuracy = {
-        correct_count / test.size
+        correctCount / test.size
     }
 
-    def correct_count = {
-        predictions.zip(historic_outcomes).count(
-            Function.tupled((symbol, percentage_change) => {
+    def correctCount = {
+        predictions.zip(historicOutcomes).count(
+            Function.tupled((symbol, percentageChange) => {
                 if (symbol == 'positve) {
-                    percentage_change > 0.0
+                    if (percentageChange > 0.0) {
+                        println("correct")
+                        true
+                    } else {
+                        false
+                    }
                 } else {
-                    percentage_change <= 0.0
+                    if (percentageChange <= 0.0) {
+                        println("correct")
+                        true
+                    } else {
+                        false
+                    }
                 }
             })
         )
     }
 
-    def historic_outcomes = {
-        map_instances(test, doc => {
-            0.3 // testMeta[index]['percentage_change]
+    def historicOutcomes = {
+        test.map(doc => {
+            percentageChange(doc)
         })
     }
 
     def predictions = {
-        map_instances(test, doc => {
+        test.map(doc => {
             val neighbors = searcher.fetchNeighbors(doc)
-            val percentage_changes = map_instances(neighbors, instance => {
-                0.3 // testMeta[index]['percentage_change]
+            val percentageChanges = neighbors.map(neighbor => {
+                percentageChange(neighbor)
             })
-            val mean = arithmetic_mean(percentage_changes)
+            val mean = arithmeticMean(percentageChanges)
             if (mean > 0.0) {
                 'positive
             } else {
@@ -44,17 +55,15 @@ class Predictor(searcher: Searcher, train: Instances, test: Instances, trainMeta
             }
         })
     }
-
-    def map_instances[T](instances: Instances, func: (Instance => T)) = {
-        var list: mutable.MutableList[T] = mutable.MutableList()
-        for(x <- 0 until instances.size) {
-            val instance = instances.get(x)
-            list += func(instance)
-        }
-        list
+    
+    def percentageChange(doc: SolrDocument) = {
+        val open = doc.get("open").toDoubleOrElse(0)
+        val close = doc.get("open").toDoubleOrElse(0)
+        val delta = close - open
+        delta / ((open + close) / 2)
     }
 
-    def arithmetic_mean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
+    def arithmeticMean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
         num.toDouble(ts.sum) / ts.size
     }
 }
