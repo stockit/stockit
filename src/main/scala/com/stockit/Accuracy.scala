@@ -15,13 +15,16 @@ object Accuracy extends App {
         val client = Client
         val documents: List[SolrDocument] = Client.sortedByDate()
 
-        val train = trainGroupFold(documents, 1, 5)
-        val test = testGroupFold(documents, 1, 5)
-
+        val train = trainGroupFold(documents, 4, 5)
+        val test = testGroupFold(documents, 4, 5)
         println(s"train.length:[${train.length}], test.length:[${test.length}]")
-        
+
+        val (trainMin, trainMax) = minMaxDate(train)
+        val (testMin, testMax) = minMaxDate(test)
+        println(s"train:[${trainMin}, ${trainMax}] test:[${testMin}, ${testMax}]")
+
         val predictor = new Predictor(new Searcher(), train, test)
-        println(s"Accuracy: ${predictor.accuracy}")
+        println(s"Accuracy: ${predictor.accuracy * 100} %")
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {
@@ -56,5 +59,9 @@ object Accuracy extends App {
         }
         val sliceRange = groupSliceRange(documents, groupId, groupCount)
         documents.slice(sliceRange.start.toInt, sliceRange.end.toInt)
+    }
+
+    def minMaxDate(docs: List[SolrDocument]) = {
+        (docs.head.get("historyDate").toString(), docs.last.get("historyDate").toString())
     }
 }

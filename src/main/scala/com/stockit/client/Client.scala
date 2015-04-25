@@ -4,8 +4,7 @@ import java.io.IOException
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.{SimpleTimeZone, Date}
-import com.github.seratch.scalikesolr.request.common.WriterType
-import com.github.seratch.scalikesolr.{SolrDocument, Solr}
+import com.github.seratch.scalikesolr.{SolrClient, SolrDocument, Solr}
 import com.github.seratch.scalikesolr.request.query.{MaximumRowsReturned, Sort, Query}
 import com.github.seratch.scalikesolr.request.QueryRequest
 
@@ -14,8 +13,10 @@ import com.github.seratch.scalikesolr.request.QueryRequest
  */
 object Client {
     val host = "http://solr.deepdishdev.com:8983/solr"
-    val client = Solr.httpServer(new URL(host + "/articleStock")).newClient
+    val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(30 * 1000, 30 * 1000)
     var format: SimpleDateFormat = null
+    val instanceCount = 1000
+    val queryCutoff = 100
 
     def fetch(date: Date) = {
         val request = dateQueryRequest(date)
@@ -31,7 +32,7 @@ object Client {
     }
 
     def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int) = {
-        val request = neighborQuery(doc, number)
+        val request = neighborQuery(trainDocs, doc, number)
         try {
             val response = client.doQuery(request)
             response.response.documents
@@ -45,16 +46,21 @@ object Client {
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
         var query = doc.get("content").toString().replaceAll("[^\\s\\d\\w]+", "")
-        query = query.substring(0, List(50, query.length).min)
+        query = query.substring(0, List(queryCutoff, query.length).min)
+        val (minDate, maxDate) = minMaxDate(trainDocs)
         val request = new QueryRequest(Query(query))
         request.remove("wt")
         request.remove("start")
         request.set("wt", "json")
         request.setMaximumRowsReturned(new MaximumRowsReturned(count))
-        request.set("ft", trainDocs.foldRight((doc: SolrDocument, string: String) => {
-            s""
-        }))
+        val fq =  String.format("historyDate:[%s TO %s]", minDate, maxDate)
+        // println(fq, s"docDate${doc.get("historyDate").toString}")
+        request.set("fq", fq)
         request
+    }
+
+    def minMaxDate(trainDocs: List[SolrDocument]) = {
+        (trainDocs.head.get("historyDate").toString(), trainDocs.last.get("historyDate").toString())
     }
 
     def sortedByDate() = {
@@ -73,7 +79,7 @@ object Client {
     def sortedByDateQuery = {
         val request = new QueryRequest(Query("*:*"))
         request.setSort(Sort.as("historyDate asc"))
-        request.setMaximumRowsReturned(new MaximumRowsReturned(1000))
+        request.setMaximumRowsReturned(new MaximumRowsReturned(instanceCount))
         request
     }
 

@@ -10,24 +10,32 @@ import scala.collection.mutable
  */
 class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDocument]) {
     def accuracy = {
-        correctCount / test.size
+        correctCount / test.size.toDouble
+    }
+
+    def results = {
+        val (classifications, outcomes) = (predictions, historicOutcomes)
+        var correctCount, score = 0.0
     }
 
     def correctCount = {
         predictions.zip(historicOutcomes).count(
-            Function.tupled((symbol, percentageChange) => {
+            Function.tupled((result, percentageChange) => {
+                val (symbol, mean) = result
                 if (symbol == 'positve) {
                     if (percentageChange > 0.0) {
-                        println("correct")
+                        println(s"correct:[${symbol}, ${mean} vs ${percentageChange}]")
                         true
                     } else {
+                        println(s"incorrect:[${symbol}, ${mean} vs ${percentageChange}]")
                         false
                     }
                 } else {
                     if (percentageChange <= 0.0) {
-                        println("correct")
+                        println(s"correct:[${symbol}, ${mean} vs ${percentageChange}]")
                         true
                     } else {
+                        println(s"incorrect:[${symbol}, ${mean} vs ${percentageChange}]")
                         false
                     }
                 }
@@ -43,22 +51,26 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
 
     def predictions = {
         test.map(doc => {
-            val neighbors = searcher.fetchNeighbors(doc)
+            val neighbors = searcher.fetchNeighbors(train, doc)
             val percentageChanges = neighbors.map(neighbor => {
                 percentageChange(neighbor)
             })
             val mean = arithmeticMean(percentageChanges)
             if (mean > 0.0) {
-                'positive
+                ('positive, mean)
             } else {
-                'negative
+                ('negative, mean)
             }
         })
     }
     
-    def percentageChange(doc: SolrDocument) = {
+    def percentageChange(doc: SolrDocument): Double = {
         val open = doc.get("open").toDoubleOrElse(0)
-        val close = doc.get("open").toDoubleOrElse(0)
+        val close = doc.get("close").toDoubleOrElse(0)
+        if (close == 0.0 || open == 0.0) {
+            println(s"ZeroOpenClose, articleId${doc.get("articleId").toString()}")
+            return 0.0
+        }
         val delta = close - open
         delta / ((open + close) / 2)
     }
