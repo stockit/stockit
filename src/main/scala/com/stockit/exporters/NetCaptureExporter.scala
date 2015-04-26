@@ -36,7 +36,7 @@ object NetCaptureExporter {
         dataByDate.map((dataGroup) => {
             val (date, group) = dataGroup
             val (_, _, capture) = group.head
-            (date, capture)
+            (date, capture * 100)
         })
     }
 }

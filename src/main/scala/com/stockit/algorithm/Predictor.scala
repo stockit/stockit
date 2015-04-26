@@ -1,11 +1,7 @@
 package com.stockit.algorithm
 
-import java_cup.symbol
-
 import com.github.seratch.scalikesolr.SolrDocument
-import weka.core.{Instance, Instances}
 
-import scala.collection.mutable
 
 /**
  * Created by jmcconnell1 on 4/12/15.
@@ -31,41 +27,33 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
 
     }
 
-    def percentageChangeCaptured(symbol: Symbol, predicted: Double, actual: Double): Double = {
-        if (symbol == 'positve) {
-            if (actual > 0.0) {
-                actual
-            } else {
-                -actual
-            }
+    def percentageChangeCaptured(prediction: Symbol, predictedChange: Double, actualChange: Double): Double = {
+        if (prediction == 'positve) {
+            actualChange
         } else {
-            if (actual <= 0.0) {
-                -actual
-            } else {
-                actual
-            }
+            -actualChange
         }
     }
 
 
     def totalPercentageChange = {
         cachedData.foldLeft(0.0)((sum: Double, datum: (String, Symbol, Double, Double)) => {
-            val (date, symbol, predicted, actual) = datum
+            val (_, symbol, predicted, actual) = datum
             sum + percentageChangeCaptured(symbol, predicted, actual)
         })
     }
 
     def correctCount = {
         cachedData.count((datum: (String, Symbol, Double, Double)) => {
-            val (date, symbol, predicted, actual) = datum
-            if (symbol == 'positve) {
-                if (actual > 0.0) {
+            val (date, prediction, _, actualChange) = datum
+            if (prediction == 'positve) {
+                if (actualChange > 0.0) {
                     true
                 } else {
                     false
                 }
             } else {
-                if (actual <= 0.0) {
+                if (actualChange <= 0.0) {
                     true
                 } else {
                     false
@@ -127,7 +115,7 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
             return 0.0
         }
         val delta = close - open
-        delta / ((open + close) / 2)
+        delta / open
     }
 
     def arithmeticMean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {

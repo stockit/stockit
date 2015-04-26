@@ -15,7 +15,7 @@ object Client {
     val host = "http://solr.deepdishdev.com:8983/solr"
     val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(100 * 1000, 100 * 1000)
     var format: SimpleDateFormat = null
-    val instanceCount = 400
+    val instanceCount = 2000
     val queryCutoff = 100
 
     def fetch(date: Date) = {
@@ -31,10 +31,21 @@ object Client {
         }
     }
 
+
+    def ensureNeighborsBeforeDate(documents: List[SolrDocument], latestDate: Date) = {
+        documents.foreach((doc) => {
+            val date = dateOfDoc(doc)
+            if (date.after(latestDate)) {
+                throw new Exception(s"Article ${doc.get("articleId")} has date:[$date] which is after $latestDate}")
+            }
+        })
+    }
+
     def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int) = {
         val request = neighborQuery(trainDocs, doc, number)
         try {
             val response = client.doQuery(request)
+            ensureNeighborsBeforeDate(response.response.documents, dateOfDoc(doc))
             response.response.documents
         } catch {
             case e: IOException => {
@@ -42,6 +53,10 @@ object Client {
                 throw e
             }
         }
+    }
+
+    def dateOfDoc(doc: SolrDocument) = {
+        formatter.parse(createParsableString(doc.get("historyDate").toString()))
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
@@ -99,6 +114,10 @@ object Client {
 
     def dateToString(date: Date) = {
         formatter.format(date)
+    }
+
+    def createParsableString(dateString: String) = {
+        dateString.replace("T", " ").replace("Z", "")
     }
 
     def formatter = {
