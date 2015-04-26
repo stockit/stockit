@@ -27,8 +27,11 @@ object Accuracy extends App {
         val predictor = new Predictor(searcher = new Searcher(), train = train, test = test)
         println(s"Accuracy: ${predictor.accuracy * 100} %")
         println(s"Net Percentage Change Per Article: ${predictor.percentageChangePerArticle * 100} %")
+        println(s"Aggressive Capture Per Article: ${predictor.aggressiveCapturePerArticle}")
 
-        NetCaptureExporter.export("net_capture_per_date.csv", predictor.captureOverTime)
+        NetCaptureExporter.export("net_capture_by_date.csv", predictor.captureOverTime)
+        NetCaptureExporter.export("aggressive_capture_by_date.csv", predictor.aggressiveCaptureOverTime)
+        NetCaptureExporter.export("correct_count_by_date.csv", predictor.correctCountOverTime)
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {

@@ -19,10 +19,10 @@ object NetCaptureExporter {
     def csvString(data: List[(String, Symbol, Double)]) = {
         val buffer = new StringBuffer
         val netByDate = netCaputureByDate(data)
-        buffer.append("Date, Net Capture\n")
+        buffer.append("Date, Real Date, Net Capture\n")
         netByDate.foreach((datum) => {
             val (date, net) = datum
-            buffer.append(s"$date, $net\n")
+            buffer.append(s"$date, , $net\n")
         })
         buffer.toString
     }

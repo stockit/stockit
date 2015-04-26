@@ -15,7 +15,7 @@ object Client {
     val host = "http://solr.deepdishdev.com:8983/solr"
     val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(100 * 1000, 100 * 1000)
     var format: SimpleDateFormat = null
-    val instanceCount = 2000
+    val instanceCount = 4000
     val queryCutoff = 100
 
     def fetch(date: Date) = {
@@ -41,7 +41,7 @@ object Client {
         })
     }
 
-    def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int) = {
+    def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int): List[SolrDocument] = {
         val request = neighborQuery(trainDocs, doc, number)
         try {
             val response = client.doQuery(request)
@@ -50,7 +50,7 @@ object Client {
         } catch {
             case e: IOException => {
                 println("Error on query:" + request.queryString)
-                throw e
+                return neighbors(trainDocs, doc, number)
             }
         }
     }

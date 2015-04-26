@@ -17,6 +17,31 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
         totalPercentageChange / test.size.toDouble
     }
 
+    def aggressiveCapturePerArticle = {
+        totalAggressiveCapture / test.size.toDouble
+    }
+
+    def aggressiveCapture(prediction: Symbol, predictedChange: Double, actualChange: Double): Double = {
+        100 * predictedChange * actualChange
+    }
+
+    def totalAggressiveCapture = {
+        cachedData.foldLeft(0.0)((sum: Double, datum: (String, Symbol, Double, Double)) => {
+            val (_, symbol, predicted, actual) = datum
+            sum + aggressiveCapture(symbol, predicted, actual)
+        })
+    }
+
+    def aggressiveCaptureOverTime = {
+        var sum = 0.0
+        cachedData.map((datum: (String, Symbol, Double, Double)) => {
+            val (date, symbol, predicted, actual) = datum
+            sum += aggressiveCapture(symbol, predicted, actual)
+            (date, symbol, sum)
+        })
+
+    }
+
     def captureOverTime = {
         var sum = 0.0
         cachedData.map((datum: (String, Symbol, Double, Double)) => {
@@ -24,7 +49,6 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
             sum += percentageChangeCaptured(symbol, predicted, actual)
             (date, symbol, sum)
         })
-
     }
 
     def percentageChangeCaptured(prediction: Symbol, predictedChange: Double, actualChange: Double): Double = {
@@ -35,7 +59,6 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
         }
     }
 
-
     def totalPercentageChange = {
         cachedData.foldLeft(0.0)((sum: Double, datum: (String, Symbol, Double, Double)) => {
             val (_, symbol, predicted, actual) = datum
@@ -43,22 +66,32 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
         })
     }
 
+    def correctCountOverTime = {
+        var sum = 0.0
+        cachedData.map((datum: (String, Symbol, Double, Double)) => {
+            val (date, prediction, _, actualChange) = datum
+            if (correctPrediction(prediction, actualChange)) {
+                sum += 1
+            } else {
+                sum -= 1
+            }
+            (date, prediction, sum)
+        })
+
+    }
+
+    def correctPrediction(prediction: Symbol, actualChange: Double) = {
+        if (prediction == 'positve) {
+            actualChange > 0.0
+        } else {
+            actualChange <= 0.0
+        }
+    }
+
     def correctCount = {
         cachedData.count((datum: (String, Symbol, Double, Double)) => {
             val (date, prediction, _, actualChange) = datum
-            if (prediction == 'positve) {
-                if (actualChange > 0.0) {
-                    true
-                } else {
-                    false
-                }
-            } else {
-                if (actualChange <= 0.0) {
-                    true
-                } else {
-                    false
-                }
-            }
+            correctPrediction(prediction, actualChange)
         })
     }
 
