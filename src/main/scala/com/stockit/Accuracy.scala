@@ -4,8 +4,10 @@ import com.github.seratch.scalikesolr.SolrDocument
 import com.stockit.client.Client
 import com.stockit.algorithm.{Searcher, Predictor}
 import com.stockit.exporters.NetCaptureExporter
+import com.stockit.statistics.Statistics
 
 import scala.collection.mutable
+import scala.reflect.internal.util.Statistics
 
 /**
  * Created by jmcconnell1 on 4/23/15.
@@ -25,13 +27,15 @@ object Accuracy extends App {
         println(s"train:[${trainMin}, ${trainMax}] test:[${testMin}, ${testMax}]")
 
         val predictor = new Predictor(searcher = new Searcher(), train = train, test = test)
-        println(s"Accuracy: ${predictor.accuracy * 100} %")
-        println(s"Net Percentage Change Per Article: ${predictor.percentageChangePerArticle * 100} %")
-        println(s"Aggressive Capture Per Article: ${predictor.aggressiveCapturePerArticle}")
+        val statistics = new Statistics(data = predictor.cachedData)
 
-        NetCaptureExporter.export("net_capture_by_date.csv", predictor.captureOverTime)
-        NetCaptureExporter.export("aggressive_capture_by_date.csv", predictor.aggressiveCaptureOverTime)
-        NetCaptureExporter.export("correct_count_by_date.csv", predictor.correctCountOverTime)
+        println(s"Accuracy: ${statistics.accuracy * 100} %")
+        println(s"Net Percentage Change Per Article: ${statistics.percentageChangePerArticle * 100} %")
+        println(s"Aggressive Capture Per Article: ${statistics.aggressiveCapturePerArticle}")
+
+        NetCaptureExporter.export("net_capture_by_date.csv", statistics.captureOverTime)
+        NetCaptureExporter.export("aggressive_capture_by_date.csv", statistics.aggressiveCaptureOverTime)
+        NetCaptureExporter.export("correct_count_by_date.csv", statistics.correctCountOverTime)
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {
