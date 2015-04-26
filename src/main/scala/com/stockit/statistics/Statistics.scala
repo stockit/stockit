@@ -24,12 +24,12 @@ class Statistics(data: List[(String, Double, Double)]) {
         totalAggressiveCapture / data.size.toDouble
     }
 
-    def aggressiveCapture(predictedChange: Double, actualChange: Double): Double = {
+    def aggressiveCapture(predictedChange: Double, actual: Double): Double = {
         val magnitude = Math.log(predictedChange.abs + Math.E)
         if (predictedChange > 0.0 ) {
-            magnitude * actualChange
+            magnitude * actual
         } else {
-            -magnitude * actualChange
+            -magnitude * actual
         }
     }
 
@@ -77,8 +77,8 @@ class Statistics(data: List[(String, Double, Double)]) {
     def correctCountOverTime = {
         var sum = 0.0
         data.map((datum: (String, Double, Double)) => {
-            val (date, prediction, actualChange) = datum
-            if (correctPrediction(prediction, actualChange)) {
+            val (date, prediction, actual) = datum
+            if (correctPrediction(prediction, actual)) {
                 sum += 1
             } else {
                 sum -= 1
@@ -88,8 +88,8 @@ class Statistics(data: List[(String, Double, Double)]) {
 
     }
 
-    def correctPrediction(prediction: Double, actualChange: Double) = {
-        (prediction * actualChange > 0.0) || (prediction == actualChange)
+    def correctPrediction(prediction: Double, actual: Double) = {
+        (prediction * actual > 0.0) || (prediction == actual)
     }
 
     def guessPositiveMovementCount = {
@@ -101,20 +101,20 @@ class Statistics(data: List[(String, Double, Double)]) {
 
     def positiveMovementCount = {
         data.count((datum: (String, Double, Double)) => {
-            val (_, _, actualChange) = datum
-            actualChange > 0.0
+            val (_, _, actual) = datum
+            actual > 0.0
         })
     }
 
     def correctCount = {
         var count = 0
         data.foreach((datum: (String, Double, Double)) => {
-            val (_, prediction, actualChange) = datum
-            if (correctPrediction(prediction, actualChange)) {
+            val (_, prediction, actual) = datum
+            if (correctPrediction(prediction, actual)) {
                 count += 1
-                // println(s"Correct:[$prediction vs $actualChange, $count]")
+                // println(s"Correct:[$prediction vs $actual, $count]")
             } else {
-                // println(s"Incorrect:[$prediction vs $actualChange, $count]")
+                // println(s"Incorrect:[$prediction vs $actual, $count]")
             }
         })
         count
