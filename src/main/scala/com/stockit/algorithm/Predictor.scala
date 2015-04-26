@@ -112,7 +112,11 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
     }
 
     def historicDate(doc: SolrDocument) = {
-        doc.get("historicDate").toString()
+        val date = doc.get("historyDate").toString()
+        if (date.isEmpty) {
+            throw new Exception(s"[$date] is empty")
+        }
+        date
     }
     
     def percentageChange(doc: SolrDocument): Double = {

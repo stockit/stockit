@@ -2,6 +2,8 @@ package com.stockit.exporters
 
 import java.io.{File, PrintWriter}
 
+import scala.util.Sorting
+
 
 /**
  * Created by jmcconnell1 on 4/25/15.
@@ -27,14 +29,14 @@ object NetCaptureExporter {
 
     def netCaputureByDate(data: List[(String, Symbol, Double)]) = {
         val dataByDate = data.groupBy((datum) => {
-            val (date, ticker, net) = datum
+            val (date, _, _) = datum
             date
         })
         // Just grab one of the results
         dataByDate.map((dataGroup) => {
             val (date, group) = dataGroup
-            (date, group.head)
+            val (_, _, capture) = group.head
+            (date, capture)
         })
-
     }
 }

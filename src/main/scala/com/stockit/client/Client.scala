@@ -15,7 +15,7 @@ object Client {
     val host = "http://solr.deepdishdev.com:8983/solr"
     val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(100 * 1000, 100 * 1000)
     var format: SimpleDateFormat = null
-    val instanceCount = 600
+    val instanceCount = 400
     val queryCutoff = 100
 
     def fetch(date: Date) = {
