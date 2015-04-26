@@ -1,5 +1,7 @@
 package com.stockit.algorithm
 
+import java_cup.symbol
+
 import com.github.seratch.scalikesolr.SolrDocument
 import weka.core.{Instance, Instances}
 
@@ -9,42 +11,69 @@ import scala.collection.mutable
  * Created by jmcconnell1 on 4/12/15.
  */
 class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDocument]) {
+    var data: List[(Symbol, Double, Double)] = Nil
+
     def accuracy = {
         correctCount / test.size.toDouble
     }
 
-    def results = {
-        val (classifications, outcomes) = (predictions, historicOutcomes)
-        var correctCount, score = 0.0
+    def percentageChangePerArticle = {
+        totalPercentageChange / test.size.toDouble
+    }
+
+    def cachedData = {
+        if (data == Nil) {
+            data =  predictions.zip(historicOutcomes).map(
+                Function.tupled((result, percentageChange) => {
+                    val (symbol, mean) = result
+                    (symbol, mean, percentageChange)
+                })
+            )
+        }
+        data
+    }
+
+    def totalPercentageChange = {
+        cachedData.foldLeft(0.0)((sum: Double, datum: (Symbol, Double, Double)) => {
+            val (symbol, predicted, actual) = datum
+            val lossOrGain = actual.abs
+            if (symbol == 'positve) {
+                if (actual > 0.0) {
+                    sum + lossOrGain
+                } else {
+                    sum - lossOrGain
+                }
+            } else {
+                if (actual <= 0.0) {
+                    sum + lossOrGain
+                } else {
+                    sum - lossOrGain
+                }
+            }
+        })
     }
 
     def correctCount = {
-        predictions.zip(historicOutcomes).count(
-            Function.tupled((result, percentageChange) => {
-                val (symbol, mean) = result
-                if (symbol == 'positve) {
-                    if (percentageChange > 0.0) {
-                        println(s"correct:[${symbol}, ${mean} vs ${percentageChange}]")
-                        true
-                    } else {
-                        println(s"incorrect:[${symbol}, ${mean} vs ${percentageChange}]")
-                        false
-                    }
+        cachedData.count((datum: (Symbol, Double, Double)) => {
+            val (symbol, predicted, actual) = datum
+            if (symbol == 'positve) {
+                if (actual > 0.0) {
+                    true
                 } else {
-                    if (percentageChange <= 0.0) {
-                        println(s"correct:[${symbol}, ${mean} vs ${percentageChange}]")
-                        true
-                    } else {
-                        println(s"incorrect:[${symbol}, ${mean} vs ${percentageChange}]")
-                        false
-                    }
+                    false
                 }
-            })
-        )
+            } else {
+                if (actual <= 0.0) {
+                    true
+                } else {
+                    false
+                }
+            }
+        })
     }
 
     def historicOutcomes = {
-        test.map(doc => {
+        train.map(doc => {
             percentageChange(doc)
         })
     }

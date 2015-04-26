@@ -25,6 +25,7 @@ object Accuracy extends App {
 
         val predictor = new Predictor(new Searcher(), train, test)
         println(s"Accuracy: ${predictor.accuracy * 100} %")
+        println(s"Net Percentage Change Per Article: ${predictor.percentageChangePerArticle * 100} %")
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {
