@@ -11,7 +11,7 @@ import scala.collection.mutable
  * Created by jmcconnell1 on 4/12/15.
  */
 class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDocument]) {
-    var data: List[(Symbol, Double, Double)] = Nil
+    var data: List[(String, Symbol, Double, Double)] = Nil
 
     def accuracy = {
         correctCount / test.size.toDouble
@@ -21,41 +21,43 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
         totalPercentageChange / test.size.toDouble
     }
 
-    def cachedData = {
-        if (data == Nil) {
-            data =  predictions.zip(historicOutcomes).map(
-                Function.tupled((result, percentageChange) => {
-                    val (symbol, mean) = result
-                    (symbol, mean, percentageChange)
-                })
-            )
-        }
-        data
+    def captureOverTime = {
+        var sum = 0.0
+        cachedData.map((datum: (String, Symbol, Double, Double)) => {
+            val (date, symbol, predicted, actual) = datum
+            sum += percentageChangeCaptured(symbol, predicted, actual)
+            (date, symbol, sum)
+        })
+
     }
 
-    def totalPercentageChange = {
-        cachedData.foldLeft(0.0)((sum: Double, datum: (Symbol, Double, Double)) => {
-            val (symbol, predicted, actual) = datum
-            val lossOrGain = actual.abs
-            if (symbol == 'positve) {
-                if (actual > 0.0) {
-                    sum + lossOrGain
-                } else {
-                    sum - lossOrGain
-                }
+    def percentageChangeCaptured(symbol: Symbol, predicted: Double, actual: Double): Double = {
+        if (symbol == 'positve) {
+            if (actual > 0.0) {
+                actual
             } else {
-                if (actual <= 0.0) {
-                    sum + lossOrGain
-                } else {
-                    sum - lossOrGain
-                }
+                -actual
             }
+        } else {
+            if (actual <= 0.0) {
+                -actual
+            } else {
+                actual
+            }
+        }
+    }
+
+
+    def totalPercentageChange = {
+        cachedData.foldLeft(0.0)((sum: Double, datum: (String, Symbol, Double, Double)) => {
+            val (date, symbol, predicted, actual) = datum
+            sum + percentageChangeCaptured(symbol, predicted, actual)
         })
     }
 
     def correctCount = {
-        cachedData.count((datum: (Symbol, Double, Double)) => {
-            val (symbol, predicted, actual) = datum
+        cachedData.count((datum: (String, Symbol, Double, Double)) => {
+            val (date, symbol, predicted, actual) = datum
             if (symbol == 'positve) {
                 if (actual > 0.0) {
                     true
@@ -73,24 +75,44 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
     }
 
     def historicOutcomes = {
-        train.map(doc => {
+        test.map(doc => {
             percentageChange(doc)
         })
     }
 
     def predictions = {
+        var count = 0
         test.map(doc => {
+            val date: String = historicDate(doc)
             val neighbors = searcher.fetchNeighbors(train, doc)
             val percentageChanges = neighbors.map(neighbor => {
                 percentageChange(neighbor)
             })
             val mean = arithmeticMean(percentageChanges)
+            count += 1
+            println(s"Calculated Prediction ${count}")
             if (mean > 0.0) {
-                ('positive, mean)
+                (date, 'positive, mean)
             } else {
-                ('negative, mean)
+                (date, 'negative, mean)
             }
         })
+    }
+
+    def cachedData = {
+        if (data == Nil) {
+            data =  predictions.zip(historicOutcomes).map(
+                Function.tupled((result, percentageChange) => {
+                    val (date, symbol, mean) = result
+                    (date, symbol, mean, percentageChange)
+                })
+            )
+        }
+        data
+    }
+
+    def historicDate(doc: SolrDocument) = {
+        doc.get("historicDate").toString()
     }
     
     def percentageChange(doc: SolrDocument): Double = {

@@ -3,6 +3,7 @@ package com.stockit
 import com.github.seratch.scalikesolr.SolrDocument
 import com.stockit.client.Client
 import com.stockit.algorithm.{Searcher, Predictor}
+import com.stockit.exporters.NetCaptureExporter
 
 import scala.collection.mutable
 
@@ -23,9 +24,11 @@ object Accuracy extends App {
         val (testMin, testMax) = minMaxDate(test)
         println(s"train:[${trainMin}, ${trainMax}] test:[${testMin}, ${testMax}]")
 
-        val predictor = new Predictor(new Searcher(), train, test)
+        val predictor = new Predictor(searcher = new Searcher(), train = train, test = test)
         println(s"Accuracy: ${predictor.accuracy * 100} %")
         println(s"Net Percentage Change Per Article: ${predictor.percentageChangePerArticle * 100} %")
+
+        NetCaptureExporter.export("net_capture_per_date.csv", predictor.captureOverTime)
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {
