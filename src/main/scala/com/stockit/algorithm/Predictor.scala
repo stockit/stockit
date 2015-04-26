@@ -7,7 +7,7 @@ import com.github.seratch.scalikesolr.SolrDocument
  * Created by jmcconnell1 on 4/12/15.
  */
 class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDocument]) {
-    var data: List[(String, Symbol, Double, Double)] = Nil
+    var data: List[(String, Double, Double)] = Nil
 
     def historicOutcomes = {
         test.map(doc => {
@@ -26,20 +26,20 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
             val mean = arithmeticMean(percentageChanges)
             count += 1
             println(s"Calculated Prediction ${count}")
-            if (mean > 0.0) {
-                (date, 'positive, mean)
-            } else {
-                (date, 'negative, mean)
-            }
+            (date, mean)
         })
+    }
+
+    def results = {
+        cachedData
     }
 
     def cachedData = {
         if (data == Nil) {
             data =  predictions.zip(historicOutcomes).map(
                 Function.tupled((result, percentageChange) => {
-                    val (date, symbol, mean) = result
-                    (date, symbol, mean, percentageChange)
+                    val (date, mean) = result
+                    (date, mean, percentageChange)
                 })
             )
         }

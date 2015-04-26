@@ -15,8 +15,8 @@ object Client {
     val host = "http://solr.deepdishdev.com:8983/solr"
     val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(100 * 1000, 100 * 1000)
     var format: SimpleDateFormat = null
-    val instanceCount = 4000
-    val queryCutoff = 100
+    val instanceCount = 1000
+    val queryCutoff = 100 // 100 performed better?
 
     def fetch(date: Date) = {
         val request = dateQueryRequest(date)
@@ -41,6 +41,15 @@ object Client {
         })
     }
 
+    def ensureNeighborsDontIncludeSelf(documents: List[SolrDocument], docId: String) = {
+        documents.foreach((doc) => {
+            val id = idOfDoc(doc)
+            if (id == docId) {
+                throw new Exception(s"Article ${id} was returned as neighbor")
+            }
+        })
+    }
+
     def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int): List[SolrDocument] = {
         val request = neighborQuery(trainDocs, doc, number)
         try {
@@ -57,6 +66,10 @@ object Client {
 
     def dateOfDoc(doc: SolrDocument) = {
         formatter.parse(createParsableString(doc.get("historyDate").toString()))
+    }
+
+    def idOfDoc(doc: SolrDocument) = {
+        doc.get("articleId").toString()
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {

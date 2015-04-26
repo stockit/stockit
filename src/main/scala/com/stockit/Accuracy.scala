@@ -3,9 +3,10 @@ package com.stockit
 import com.github.seratch.scalikesolr.SolrDocument
 import com.stockit.client.Client
 import com.stockit.algorithm.{Searcher, Predictor}
-import com.stockit.exporters.NetCaptureExporter
+import com.stockit.exporters.{CompleteStatsExporter, NetCaptureExporter}
 import com.stockit.statistics.Statistics
 
+import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
 import scala.reflect.internal.util.Statistics
 
@@ -18,24 +19,57 @@ object Accuracy extends App {
         val client = Client
         val documents: List[SolrDocument] = Client.sortedByDate()
 
-        val train = trainGroupFold(documents, 4, 5)
-        val test = testGroupFold(documents, 4, 5)
-        println(s"train.length:[${train.length}], test.length:[${test.length}]")
+        val train = trainGroupFold(documents, 1, 2)
+        val test = testGroupFold(documents, 1, 2)
 
         val (trainMin, trainMax) = minMaxDate(train)
-        val (testMin, testMax) = minMaxDate(test)
-        println(s"train:[${trainMin}, ${trainMax}] test:[${testMin}, ${testMax}]")
+        val folds = testFolds(test, 5)
 
-        val predictor = new Predictor(searcher = new Searcher(), train = train, test = test)
-        val statistics = new Statistics(data = predictor.cachedData)
+        val stats = folds.zipWithIndex.map{ case(fold, index) =>
+            println(s"train.length:[${train.length}], test.length:[${fold.length}]")
+            val (foldMin, foldMax) = minMaxDate(fold)
+            println(s"train:[${trainMin}, ${trainMax}] test:[${foldMin}, ${foldMax}]")
 
+            val predictor = new Predictor(searcher = new Searcher(), train = train, test = fold)
+            val statistics = new Statistics(data = predictor.results)
+
+            printStats(statistics)
+            (statistics, index)
+        }
+
+        val statsList = stats.map { case (stats, index) => stats }.toList
+        exportFolds(statsList)
+        stats.foreach{ case(statistics, index) =>
+            exportFiles(index, statistics)
+        }
+    }
+
+    def exportFolds(stats: List[Statistics]) = {
+       CompleteStatsExporter.export(s"results/experiment.csv", stats)
+    }
+
+
+    def printStats(statistics: Statistics) = {
+        println(s"Positive Movement Likelihood: ${statistics.positiveMovementLikelihood * 100} %")
+        println(s"Model's Positive Movement Likelihood: ${statistics.guessPositiveMovementLikelihood * 100} %")
         println(s"Accuracy: ${statistics.accuracy * 100} %")
         println(s"Net Percentage Change Per Article: ${statistics.percentageChangePerArticle * 100} %")
         println(s"Aggressive Capture Per Article: ${statistics.aggressiveCapturePerArticle}")
+    }
 
-        NetCaptureExporter.export("net_capture_by_date.csv", statistics.captureOverTime)
-        NetCaptureExporter.export("aggressive_capture_by_date.csv", statistics.aggressiveCaptureOverTime)
-        NetCaptureExporter.export("correct_count_by_date.csv", statistics.correctCountOverTime)
+    def exportFiles(index: Int, statistics: Statistics) = {
+        NetCaptureExporter.export(s"results/fold_$index/net_capture_by_date.csv", statistics.captureOverTime)
+        NetCaptureExporter.export(s"results/fold_$index/aggressive_capture_by_date.csv", statistics.aggressiveCaptureOverTime)
+        NetCaptureExporter.export(s"results/fold_$index/correct_count_by_date.csv", statistics.correctCountOverTime)
+    }
+
+    def testFolds(test: List[SolrDocument], count: Int) = {
+        val groupSize = Math.round(test.length.toDouble / count)
+        (0 until count).map((index) => {
+            val start = index * groupSize
+            val end = (index + 1) * groupSize
+            test.slice(start.toInt, end.toInt)
+        })
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {
