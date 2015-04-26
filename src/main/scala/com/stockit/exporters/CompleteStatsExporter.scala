@@ -4,6 +4,8 @@ import java.io.{File, PrintWriter}
 
 import com.stockit.statistics.Statistics
 
+import scala.collection.immutable.Iterable
+
 /**
  * Created by jmcconnell1 on 4/26/15.
  */
@@ -15,30 +17,60 @@ object CompleteStatsExporter {
         file.close()
     }
 
+    def flattenStats(count: List[Map[String, Double]], capture: List[Map[String, Double]], aggCapture: List[Map[String, Double]]) = {
+        count.zipWithIndex.map{ case(countByDate, index) =>
+            countByDate.map{ case(date, count) =>
+                (date, count, capture(index)(date), aggCapture(index)(date))
+            }
+        }
+    }
+
     def csvString(stats: List[Statistics]) = {
         val buffer = new StringBuffer
-        val values = valueByDateByFold(stats)
-        buffer.append("Date, Real Date, Value\n")
+        val count = netCountByDateByFold(stats)
+        val capture =  captureByDateByFold(stats)
+        val aggCapture = aggCaptureByDateByFold(stats)
+        val values = flattenStats(count, capture, aggCapture)
+        buffer.append("Date, Real Date, Net Count, Capture, Aggressive Capture\n")
         var counter = 0
         values.foreach((valueByDate) => {
             counter += 1
             buffer.append(s"Fold $counter\n")
-            valueByDate.foreach{ case(date, value) =>
-                buffer.append(s"$date, ,$value\n")
+            valueByDate.foreach{ case(date, count, capture, aggCapture) =>
+                buffer.append(s"$date, ,$count, $capture, $aggCapture\n")
             }
         })
         buffer.toString
     }
 
-    def valueByDateByFold(data: List[Statistics]): IndexedSeq[Map[String, Double]] = {
-        val valueByDateByFold: List[Map[String, List[(String, Double)]]] = data.map((stats) => {
-            stats.aggressiveCaptureOverTime.groupBy{ case(date, value) =>
+    def captureByDateByFold(data: List[Statistics]): List[Map[String, Double]] = {
+        data.map((stats) => {
+            val valuesByDate = stats.captureOverTime.groupBy{ case(date, value) =>
                 date
             }
+            valuesByDate.map { case (key, value) =>
+                value.head
+            }
         })
-        // Just grab one of the results
-        valueByDateByFold.map((resultsByDate) => {
-            resultsByDate.map { case (key, value) =>
+    }
+
+    def netCountByDateByFold(data: List[Statistics]): List[Map[String, Double]] = {
+        data.map((stats) => {
+            val valuesByDate = stats.correctCountOverTime.groupBy{ case(date, value) =>
+                date
+            }
+            valuesByDate.map { case (key, value) =>
+                value.head
+            }
+        })
+    }
+
+    def aggCaptureByDateByFold(data: List[Statistics]): List[Map[String, Double]] = {
+        data.map((stats) => {
+            val valuesByDate = stats.aggressiveCaptureOverTime.groupBy{ case(date, value) =>
+                date
+            }
+            valuesByDate.map { case (key, value) =>
                 value.head
             }
         })
