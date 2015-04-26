@@ -9,6 +9,7 @@ import com.stockit.statistics.Statistics
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
 import scala.reflect.internal.util.Statistics
+import scala.util.Random
 
 /**
  * Created by jmcconnell1 on 4/23/15.
@@ -64,11 +65,19 @@ object Accuracy extends App {
     }
 
     def testFolds(test: List[SolrDocument], count: Int) = {
-        val groupSize = Math.round(test.length.toDouble / count)
-        (0 until count).map((index) => {
-            val start = index * groupSize
-            val end = (index + 1) * groupSize
-            test.slice(start.toInt, end.toInt)
+        val folds = (0 until count).map(_ => mutable.MutableList[SolrDocument]())
+        val shuffled = Random.shuffle(test)
+        var counter = 0
+        shuffled.foreach((element) => {
+            val foldIndex = counter % count
+            val fold = folds(foldIndex)
+            fold += element
+            counter += 1
+        })
+        folds.map((fold) => {
+            fold.sortBy((doc) => {
+                Client.dateOfDoc(doc)
+            }).toList
         })
     }
 

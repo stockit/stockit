@@ -37,9 +37,9 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
     def cachedData = {
         if (data == Nil) {
             data =  predictions.zip(historicOutcomes).map(
-                Function.tupled((result, percentageChange) => {
-                    val (date, mean) = result
-                    (date, mean, percentageChange)
+                Function.tupled((result, actual) => {
+                    val (date, predicted) = result
+                    (date, predicted, actual)
                 })
             )
         }

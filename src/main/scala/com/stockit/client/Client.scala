@@ -16,7 +16,7 @@ object Client {
     val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(100 * 1000, 100 * 1000)
     var format: SimpleDateFormat = null
     val instanceCount = 8000
-    val queryCutoff = 1000 // 100 performed better?
+    val queryCutoff = 500 // 100 performed better?
 
     def fetch(date: Date) = {
         val request = dateQueryRequest(date)
