@@ -21,10 +21,12 @@ class Statistics(data: List[(String, Symbol, Double, Double)]) {
     }
 
     def totalAggressiveCapture = {
-        data.foldLeft(0.0)((sum: Double, datum: (String, Symbol, Double, Double)) => {
+        val arr = data.map((datum: (String, Symbol, Double, Double)) => {
             val (_, symbol, predicted, actual) = datum
-            sum + aggressiveCapture(symbol, predicted, actual)
+            aggressiveCapture(symbol, predicted, actual)
         })
+
+        arr.sum
     }
 
     def aggressiveCaptureOverTime = {

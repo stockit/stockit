@@ -25,7 +25,7 @@ libraryDependencies ++= Seq(
     "commons-httpclient" % "commons-httpclient" % "3.1",
     "org.json4s" %% "json4s-native" % "3.2.11",
     "nz.ac.waikato.cms.weka" % "weka-dev" % "3.7.10",
-    "com.github.seratch" %% "scalikesolr" % "4.10.0"
+    "com.lambdaworks" %% "jacks" % "2.3.3"
 )
 
 resolvers += "Secured Central Repository" at "https://repo1.maven.org/maven2"
