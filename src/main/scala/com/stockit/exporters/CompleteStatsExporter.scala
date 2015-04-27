@@ -36,8 +36,12 @@ object CompleteStatsExporter {
         values.foreach((valueByDate) => {
             counter += 1
             buffer.append(s"Fold $counter\n")
+            var foldSize = 0
             valueByDate.foreach{ case(date, count, capture, aggCapture) =>
-                buffer.append(s"$date, ,$count, $capture, $aggCapture\n")
+                if (foldSize < 255) {
+                    buffer.append(s"$date, ,$count, $capture, $aggCapture\n")
+                }
+                foldSize += 1
             }
         })
         buffer.toString
