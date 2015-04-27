@@ -62,10 +62,18 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
             return 0.0
         }
         val delta = close - open
-        delta / open
+        val result = delta / open
+        if (result.isNaN) {
+            throw new ArithmeticException(s"result is NaN, close $close, open $open")
+        }
+        result
     }
 
     def arithmeticMean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
-        num.toDouble(ts.sum) / ts.size
+        val result = num.toDouble(ts.sum) / ts.size
+        if (result.isNaN) {
+           throw new ArithmeticException(s"result is NaN, sum is ${ts.sum}, size is ${ts.size}")
+        }
+        result
     }
 }
