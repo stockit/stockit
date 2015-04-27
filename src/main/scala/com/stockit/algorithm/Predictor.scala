@@ -67,6 +67,10 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
     }
 
     def arithmeticMean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
-        num.toDouble(ts.sum) / ts.size
+        val result = num.toDouble(ts.sum) / ts.size
+        if (result.isNaN) {
+           throw new ArithmeticException(s"result is NaN, sum is ${ts.sum}, size is ${ts.size}")
+        }
+        result
     }
 }

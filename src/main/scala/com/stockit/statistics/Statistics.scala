@@ -24,12 +24,23 @@ class Statistics(data: List[(String, Double, Double)]) {
         totalAggressiveCapture / data.size.toDouble
     }
 
-    def aggressiveCapture(predictedChange: Double, actual: Double): Double = {
-        val magnitude = Math.log(predictedChange.abs + Math.E)
-        if (predictedChange > 0.0 ) {
-            magnitude * actual
+    def aggressiveCapture(predicted: Double, actual: Double): Double = {
+        val magnitude = Math.log(predicted.abs + Math.E)
+        if (magnitude.isNaN) {
+            throw new ArithmeticException(s"mag is NaN, predicted.abs is ${predicted.abs}, magnitude is $magnitude")
+        }
+        if (predicted > 0.0 ) {
+            val result = magnitude * actual
+            if (result.isNaN) {
+                throw new ArithmeticException(s"result is NaN result $result, actual $actual")
+            }
+            result
         } else {
-            -magnitude * actual
+            val result = -magnitude * actual
+            if (result.isNaN) {
+                throw new ArithmeticException(s"result is NaN result $result, actual $actual")
+            }
+            result
         }
     }
 
