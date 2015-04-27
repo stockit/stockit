@@ -4,28 +4,36 @@ import java.io.IOException
 import java.net.URL
 import java.text.SimpleDateFormat
 import java.util.{SimpleTimeZone, Date}
-import com.github.seratch.scalikesolr.{SolrClient, SolrDocument, Solr}
-import com.github.seratch.scalikesolr.request.query.{MaximumRowsReturned, Sort, Query}
-import com.github.seratch.scalikesolr.request.QueryRequest
+import com.stockit.module.service.SolrClientModule
+import org.apache.solr.client.solrj.request.QueryRequest
+import org.apache.solr.client.solrj.{SolrQuery, SolrClient}
+import org.apache.solr.common.{SolrDocumentList, SolrDocument}
+import scaldi.Injectable
+
+import scala.collection.mutable.ListBuffer
 
 /**
  * Created by jmcconnell1 on 4/22/15.
  */
-object Client {
+class Client extends Injectable {
+
+    implicit val module = new SolrClientModule
+
     val host = "http://solr.deepdishdev.com:8983/solr"
-    val client: SolrClient = Solr.httpServer(new URL(host + "/articleStock")).newClient(100 * 1000, 100 * 1000)
+    val client: SolrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articleStockSolrClient)
     var format: SimpleDateFormat = null
+    var dayFormat: SimpleDateFormat = null
     val instanceCount = 8000
     val queryCutoff = 5000 // 100 performed better?
 
     def fetch(date: Date) = {
         val request = dateQueryRequest(date)
         try {
-            val response = client.doQuery(request)
-            response.response.documents
+            val response = request.process(client)
+            documentListToList(response.getResults)
         } catch {
             case e: IOException => {
-                println("Error on query:" + request.queryString)
+                println("Error on query:" + request.toString)
                 throw e
             }
         }
@@ -36,7 +44,7 @@ object Client {
         documents.foreach((doc) => {
             val date = dateOfDoc(doc)
             if (date.after(latestDate)) {
-                throw new Exception(s"Article ${doc.get("articleId")} has date:[$date] which is after $latestDate}")
+                throw new Exception(s"Article ${doc.getFieldValue("articleId")} has date:[$date] which is after $latestDate}")
             }
         })
     }
@@ -45,7 +53,7 @@ object Client {
         documents.foreach((doc) => {
             val id = idOfDoc(doc)
             if (id == docId) {
-                throw new Exception(s"Article ${id} was returned as neighbor")
+                throw new Exception(s"Article $id was returned as neighbor")
             }
         })
     }
@@ -53,19 +61,20 @@ object Client {
     def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int): List[SolrDocument] = {
         val request = neighborQuery(trainDocs, doc, number)
         try {
-            val response = client.doQuery(request)
-            ensureNeighborsBeforeDate(response.response.documents, dateOfDoc(doc))
-            response.response.documents
+            val response = request.process(client)
+            val documents = documentListToList(response.getResults)
+            ensureNeighborsBeforeDate(documents, dateOfDoc(doc))
+            documents
         } catch {
             case e: IOException => {
-                println("Error on query:" + request.queryString)
-                return neighbors(trainDocs, doc, number)
+                println("Error on query:" + request.toString)
+                neighbors(trainDocs, doc, number)
             }
         }
     }
 
     def dateOfDoc(doc: SolrDocument) = {
-        formatter.parse(createParsableString(doc.get("historyDate").toString()))
+        doc.getFieldValue("historyDate").asInstanceOf[Date]
     }
 
     def idOfDoc(doc: SolrDocument) = {
@@ -73,47 +82,67 @@ object Client {
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
-        var query = doc.get("content").toString().replaceAll("[^\\s\\d\\w]+", "")
-        query = query.substring(0, List(queryCutoff, query.length).min)
-        val (minDate, maxDate) = minMaxDate(trainDocs)
-        val request = new QueryRequest(Query(query))
-        request.remove("wt")
-        request.remove("start")
-        request.set("wt", "json")
-        request.setMaximumRowsReturned(new MaximumRowsReturned(count))
-        val fq =  String.format("historyDate:[%s TO %s]", minDate, maxDate)
-        // println(fq, s"docDate${doc.get("historyDate").toString}")
-        request.set("fq", fq)
-        request
+        var queryString = doc.getFieldValue("content").toString.replaceAll("[^\\s\\d\\w]+", "")
+        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
+        val (minDate: Date, maxDate: Date) = minMaxDate(trainDocs)
+
+        var query = new SolrQuery()
+        query.setParam("q", queryString)
+        query.setRows(count)
+        query.setStart(0)
+
+        val fq =  String.format("historyDate:[%s TO %s]", formatDateForSolr(minDate, isMin = true), formatDateForSolr(maxDate, isMin = false))
+        query.setFilterQueries(fq)
+
+        new QueryRequest(query)
+    }
+
+    def formatDateForSolr(date: Date, isMin: Boolean) = {
+        s"${dayFormatter.format(date)}${if(isMin) "T00:00:00Z" else "T59:59:59Z"}"
     }
 
     def minMaxDate(trainDocs: List[SolrDocument]) = {
-        (trainDocs.head.get("historyDate").toString(), trainDocs.last.get("historyDate").toString())
+
+        val dates: List[Date] = trainDocs.map{ doc =>
+            doc.getFieldValue("historyDate") match {
+                case date:Date => Some(date)
+                case _ => None
+            }
+        }.flatten
+
+        val maxDate = dates.max
+        val minDate = dates.min
+
+        (minDate, maxDate)
     }
 
     def sortedByDate() = {
         val request = sortedByDateQuery
         try {
-            val response = client.doQuery(request)
-            response.response.documents
+            val response = request.process(client)
+            val documents = documentListToList(response.getResults())
+            documents.sortBy(_.getFieldValue("historyDate").asInstanceOf[Date])
         } catch {
             case e: IOException => {
-                println("Error on query:" + request.queryString)
+                println("Error on query:" + request.toString)
                 throw e
             }
         }
     }
 
     def sortedByDateQuery = {
-        val request = new QueryRequest(Query("*:*"))
-        request.setSort(Sort.as("historyDate asc"))
-        request.setMaximumRowsReturned(new MaximumRowsReturned(instanceCount))
-        request
+        val query = new SolrQuery
+        query.setSort("historyDate", SolrQuery.ORDER.desc)
+        query.setQuery("*:*")
+        query.setRows(instanceCount)
+        new QueryRequest(query)
     }
 
     def dateQueryRequest(date: Date) = {
         val string = parseDate(date)
-        new QueryRequest(Query("historyDate:" + string)) // dateToString(date)))
+        val query = new SolrQuery
+        query.setQuery("historyDate:" + string)
+        new QueryRequest(query) // dateToString(date)))
     }
 
     def parseDate(date: Date) = {
@@ -133,11 +162,29 @@ object Client {
         dateString.replace("T", " ").replace("Z", "")
     }
 
+    def documentListToList(list: SolrDocumentList) = {
+        var listBuffer = new ListBuffer[SolrDocument]
+
+        val it = list.listIterator()
+        while(it.hasNext) {
+            listBuffer += it.next
+        }
+
+        listBuffer.toList
+    }
+
     def formatter = {
         if (format == null) {
-            format = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss")
+            format = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ssZ")
             format.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
         }
         format
+    }
+
+    def dayFormatter = {
+        if (dayFormat == null) {
+            dayFormat = new SimpleDateFormat("yyyy-MM-dd")
+        }
+        dayFormat
     }
 }

@@ -1,10 +1,12 @@
 package com.stockit
 
-import com.github.seratch.scalikesolr.SolrDocument
-import com.stockit.client.Client
+import java.util.Date
+
+import com.stockit.client.{CachingClient}
 import com.stockit.algorithm.{Searcher, Predictor}
 import com.stockit.exporters.{CompleteStatsExporter, NetCaptureExporter}
 import com.stockit.statistics.Statistics
+import org.apache.solr.common.SolrDocument
 
 import scala.collection.immutable.IndexedSeq
 import scala.collection.mutable
@@ -16,9 +18,26 @@ import scala.util.Random
  */
 object Accuracy extends App {
 
+    def ensureOrderedDocuments(docs: List[SolrDocument]): Unit = {
+        var lastDate: Date = null
+
+        val it = docs.iterator
+        while(it.hasNext) {
+            val doc = it.next
+            val curDate: Date = doc.getFieldValue("historyDate").asInstanceOf[Date]
+
+            if(lastDate != null && curDate.before(lastDate)) {
+                throw new RuntimeException("documents are out of order")
+            }
+
+            lastDate = curDate
+        }
+    }
+
     override def main(args: Array[String]): Unit = {
-        val client = Client
-        val documents: List[SolrDocument] = Client.sortedByDate()
+        val client = new CachingClient
+        val documents: List[SolrDocument] = client.sortedByDate()
+        ensureOrderedDocuments(documents)
 
         val train = trainGroupFold(documents, 1, 2)
         val test = testGroupFold(documents, 1, 2)
@@ -65,6 +84,8 @@ object Accuracy extends App {
     }
 
     def testFolds(test: List[SolrDocument], count: Int) = {
+        val client = new CachingClient
+
         val folds = (0 until count).map(_ => mutable.MutableList[SolrDocument]())
         val shuffled = Random.shuffle(test)
         var counter = 0
@@ -76,7 +97,7 @@ object Accuracy extends App {
         })
         folds.map((fold) => {
             fold.sortBy((doc) => {
-                Client.dateOfDoc(doc)
+                client.dateOfDoc(doc)
             }).toList
         })
     }
@@ -116,6 +137,16 @@ object Accuracy extends App {
     }
 
     def minMaxDate(docs: List[SolrDocument]) = {
-        (docs.head.get("historyDate").toString(), docs.last.get("historyDate").toString())
+        val dates: List[Date] = docs.map{ doc =>
+            doc.getFieldValue("historyDate") match {
+                case date:Date => Some(date)
+                case _ => None
+            }
+        }.flatten
+
+        val maxDate = dates.max
+        val minDate = dates.min
+
+        (minDate, maxDate)
     }
 }
