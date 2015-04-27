@@ -6,7 +6,7 @@ import java.text.SimpleDateFormat
 import java.util.{SimpleTimeZone, Date}
 import com.stockit.module.service.SolrClientModule
 import org.apache.solr.client.solrj.request.QueryRequest
-import org.apache.solr.client.solrj.{SolrQuery, SolrClient}
+import org.apache.solr.client.solrj.{SolrRequest, SolrQuery, SolrClient}
 import org.apache.solr.common.{SolrDocumentList, SolrDocument}
 import scaldi.Injectable
 
@@ -61,7 +61,7 @@ class Client extends Injectable {
     def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int): List[SolrDocument] = {
         val request = neighborQuery(trainDocs, doc, number)
         try {
-            val response = request.process(client)
+            val response = client.query(request.getParams, SolrRequest.METHOD.POST)
             val documents = documentListToList(response.getResults)
             ensureNeighborsBeforeDate(documents, dateOfDoc(doc))
             documents
@@ -83,7 +83,7 @@ class Client extends Injectable {
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
         var queryString = doc.getFieldValue("content").toString.replaceAll("[^\\s\\d\\w]+", "")
-        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
+//        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
         val (minDate: Date, maxDate: Date) = minMaxDate(trainDocs)
 
         var query = new SolrQuery()
