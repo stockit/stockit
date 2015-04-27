@@ -23,8 +23,8 @@ class Client extends Injectable {
     val client: SolrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articleStockSolrClient)
     var format: SimpleDateFormat = null
     var dayFormat: SimpleDateFormat = null
-    val instanceCount = 4000
-    val queryCutoff = 100
+    val instanceCount = 8000
+    val queryCutoff = 5000 // 100 performed better?
 
     def fetch(date: Date) = {
         val request = dateQueryRequest(date)
@@ -49,6 +49,15 @@ class Client extends Injectable {
         })
     }
 
+    def ensureNeighborsDontIncludeSelf(documents: List[SolrDocument], docId: String) = {
+        documents.foreach((doc) => {
+            val id = idOfDoc(doc)
+            if (id == docId) {
+                throw new Exception(s"Article $id was returned as neighbor")
+            }
+        })
+    }
+
     def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int): List[SolrDocument] = {
         val request = neighborQuery(trainDocs, doc, number)
         try {
@@ -66,6 +75,10 @@ class Client extends Injectable {
 
     def dateOfDoc(doc: SolrDocument) = {
         doc.getFieldValue("historyDate").asInstanceOf[Date]
+    }
+
+    def idOfDoc(doc: SolrDocument) = {
+        doc.get("articleId").toString()
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {

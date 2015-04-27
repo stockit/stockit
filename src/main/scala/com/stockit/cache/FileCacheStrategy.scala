@@ -1,7 +1,7 @@
 package com.stockit.cache
 
-import com.github.seratch.scalikesolr.SolrDocument
 import com.lambdaworks.jacks.JacksMapper
+import org.apache.solr.common.SolrDocument
 
 class FileSolrDocumentListCacheStrategy[A] {
 
