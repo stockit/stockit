@@ -3,6 +3,7 @@ package com.stockit.client
 import java.io.IOException
 import java.net.URL
 import java.text.SimpleDateFormat
+import java.util.regex.Pattern
 import java.util.{SimpleTimeZone, Date}
 import com.stockit.module.service.SolrClientModule
 import org.apache.solr.client.solrj.request.QueryRequest
@@ -82,7 +83,10 @@ class Client extends Injectable {
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
-        var queryString = doc.getFieldValue("content").toString.replaceAll("[^\\s\\d\\w]+", "")
+        val pattern = Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
+        var queryString = doc.getFieldValue("content").toString
+        queryString = pattern.matcher(queryString).replaceAll("\\\\$1");
+
 //        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
         val (minDate: Date, maxDate: Date) = minMaxDate(trainDocs)
 
