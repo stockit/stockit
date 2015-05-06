@@ -83,9 +83,9 @@ class Client extends Injectable {
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
-        val pattern = Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
-        var queryString = doc.getFieldValue("content").toString.replaceAll("[^\\s\\d\\w]+", "")
-        queryString = pattern.matcher(queryString).replaceAll("\\\\$1");
+        val pattern = Pattern.compile("[^\\s\\d\\w]+") // Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
+        var queryString = doc.getFieldValue("content").toString
+        queryString = pattern.matcher(queryString).replaceAll("");
 
         queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
         val (minDate: Date, maxDate: Date) = minMaxDate(trainDocs)

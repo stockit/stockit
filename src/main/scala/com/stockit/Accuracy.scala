@@ -39,33 +39,35 @@ object Accuracy extends App {
         val documents: List[SolrDocument] = client.sortedByDate()
         ensureOrderedDocuments(documents)
 
-        val train = trainGroupFold(documents, 1, 2)
-        val test = testGroupFold(documents, 1, 2)
+        for ((segment, index) <- split(documents, 5).zipWithIndex) {
+            val train = trainGroupFold(segment, 1, 2)
+            val test = testGroupFold(segment, 1, 2)
 
-        val (trainMin, trainMax) = minMaxDate(train)
-        val folds = testFolds(test, 5)
+            val (trainMin, trainMax) = minMaxDate(train)
+            val folds = testFolds(test, 5)
 
-        val stats = folds.zipWithIndex.map{ case(fold, index) =>
-            println(s"train.length:[${train.length}], test.length:[${fold.length}]")
-            val (foldMin, foldMax) = minMaxDate(fold)
-            println(s"train:[${trainMin}, ${trainMax}] test:[${foldMin}, ${foldMax}]")
+            val stats = folds.zipWithIndex.map{ case(fold, index) =>
+                println(s"train.length:[${train.length}], test.length:[${fold.length}]")
+                val (foldMin, foldMax) = minMaxDate(fold)
+                println(s"train:[${trainMin}, ${trainMax}] test:[${foldMin}, ${foldMax}]")
 
-            val predictor = new Predictor(searcher = new Searcher(), train = train, test = fold)
-            val statistics = new Statistics(data = predictor.results)
+                val predictor = new Predictor(searcher = new Searcher(), train = train, test = fold)
+                val statistics = new Statistics(data = predictor.results)
 
-            printStats(statistics)
-            (statistics, index)
-        }
+                printStats(statistics)
+                (statistics, index)
+            }
 
-        val statsList = stats.map { case (stats, index) => stats }.toList
-        exportFolds(statsList)
-        stats.foreach{ case(statistics, index) =>
-            exportFiles(index, statistics)
+            val statsList = stats.map { case (stats, index) => stats }.toList
+            exportFolds(statsList, index)
+            stats.foreach{ case(statistics, index) =>
+                exportFiles(index, statistics)
+            }
         }
     }
 
-    def exportFolds(stats: List[Statistics]) = {
-       CompleteStatsExporter.export(s"results/experiment.csv", stats)
+    def exportFolds(stats: List[Statistics], counter: Int) = {
+       CompleteStatsExporter.export(s"results/exp.$counter.csv", stats)
     }
 
 
@@ -86,20 +88,24 @@ object Accuracy extends App {
     def testFolds(test: List[SolrDocument], count: Int) = {
         val client = new CachingClient
 
-        val folds = (0 until count).map(_ => mutable.MutableList[SolrDocument]())
-        val shuffled = Random.shuffle(test)
-        var counter = 0
-        shuffled.foreach((element) => {
-            val foldIndex = counter % count
-            val fold = folds(foldIndex)
-            fold += element
-            counter += 1
-        })
+        val folds = split(Random.shuffle(test), count)
         folds.map((fold) => {
             fold.sortBy((doc) => {
                 client.dateOfDoc(doc)
             }).toList
         })
+    }
+
+    def split[T](list: List[T], groups: Int): IndexedSeq[List[T]] = {
+        val folds = (0 until groups).map(_ => mutable.MutableList[T]())
+        var counter = 0
+        list.foreach((element) => {
+            val foldIndex = counter % groups
+            val fold = folds(foldIndex)
+            fold += element
+            counter += 1
+        })
+        folds.map((L) => L.toList)
     }
 
     def trainGroupFold(documents: List[SolrDocument], groupId: Int, groupCount: Int) = {
