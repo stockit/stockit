@@ -24,7 +24,7 @@ class Client extends Injectable {
     val client: SolrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articleStockSolrClient)
     var format: SimpleDateFormat = null
     var dayFormat: SimpleDateFormat = null
-    val instanceCount = 8000
+    val instanceCount = 200
     val queryCutoff = 5000 // 100 performed better?
 
     def fetch(date: Date) = {
@@ -45,7 +45,7 @@ class Client extends Injectable {
         documents.foreach((doc) => {
             val date = dateOfDoc(doc)
             if (date.after(latestDate)) {
-                throw new Exception(s"Article ${doc.getFieldValue("articleId")} has date:[$date] which is after $latestDate}")
+                println(s"Article ${doc.getFieldValue("articleId")} has date:[$date] which is after $latestDate}")
             }
         })
     }
@@ -84,10 +84,10 @@ class Client extends Injectable {
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
         val pattern = Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
-        var queryString = doc.getFieldValue("content").toString
+        var queryString = doc.getFieldValue("content").toString.replaceAll("[^\\s\\d\\w]+", "")
         queryString = pattern.matcher(queryString).replaceAll("\\\\$1");
 
-//        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
+        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
         val (minDate: Date, maxDate: Date) = minMaxDate(trainDocs)
 
         var query = new SolrQuery()
