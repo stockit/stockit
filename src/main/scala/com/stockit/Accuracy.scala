@@ -61,7 +61,7 @@ object Accuracy extends App {
             val statsList = stats.map { case (stats, index) => stats }.toList
             exportFolds(statsList, index)
             stats.foreach{ case(statistics, index) =>
-                exportFiles(index, statistics)
+                // exportFiles(index, statistics)
             }
         }
     }
