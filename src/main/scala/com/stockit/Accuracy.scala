@@ -63,6 +63,8 @@ object Accuracy extends App {
             stats.foreach{ case(statistics, index) =>
                 // exportFiles(index, statistics)
             }
+
+            println(s"Finished Segment: $index")
         }
     }
 

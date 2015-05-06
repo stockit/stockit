@@ -26,7 +26,8 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
             val mean = arithmeticMean(percentageChanges)
             count += 1
 
-            println(s"Calculated Prediction ${count}")
+            if (count % 100 == 0) println(s"Calculated Prediction ${count}")
+
             (date, mean)
         }).seq.toList
     }
