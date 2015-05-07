@@ -24,7 +24,7 @@ class Client extends Injectable {
     val client: SolrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articleStockSolrClient)
     var format: SimpleDateFormat = null
     var dayFormat: SimpleDateFormat = null
-    val instanceCount = 8000
+    val instanceCount = 10000
     val queryCutoff = 5000 // 100 performed better?
 
     def fetch(date: Date) = {
@@ -45,7 +45,7 @@ class Client extends Injectable {
         documents.foreach((doc) => {
             val date = dateOfDoc(doc)
             if (date.after(latestDate)) {
-                throw new Exception(s"Article ${doc.getFieldValue("articleId")} has date:[$date] which is after $latestDate}")
+                println(s"Article ${doc.getFieldValue("articleId")} has date:[$date] which is after $latestDate}")
             }
         })
     }
@@ -71,6 +71,10 @@ class Client extends Injectable {
                 println("Error on query:" + request.toString)
                 neighbors(trainDocs, doc, number)
             }
+            case e: Exception => {
+                println("Really bad fuck up returning no neighbors")
+                Nil
+            }
         }
     }
 
@@ -83,14 +87,14 @@ class Client extends Injectable {
     }
 
     def neighborQuery(trainDocs: List[SolrDocument], doc: SolrDocument, count: Int) = {
-        val pattern = Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
+        val pattern = Pattern.compile("[^\\s\\d\\w]+") // Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
         var queryString = doc.getFieldValue("content").toString
-        queryString = pattern.matcher(queryString).replaceAll("\\\\$1");
+        queryString = pattern.matcher(queryString).replaceAll("");
 
-//        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
+        queryString = queryString.substring(0, List(queryCutoff, queryString.length).min)
         val (minDate: Date, maxDate: Date) = minMaxDate(trainDocs)
 
-        var query = new SolrQuery()
+        val query = new SolrQuery()
         query.setParam("q", queryString)
         query.setRows(count)
         query.setStart(0)
@@ -102,7 +106,14 @@ class Client extends Injectable {
     }
 
     def formatDateForSolr(date: Date, isMin: Boolean) = {
-        s"${dayFormatter.format(date)}${if(isMin) "T00:00:00Z" else "T59:59:59Z"}"
+        try {
+            s"${dayFormatter.format(date)}${if(isMin) "T00:00:00Z" else "T59:59:59Z"}"
+        } catch {
+            case e: Error => {
+                println(s"Error: $date, $isMin")
+                throw e
+            }
+        }
     }
 
     def minMaxDate(trainDocs: List[SolrDocument]) = {

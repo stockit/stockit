@@ -1,8 +1,11 @@
 package com.stockit.exporters
 
 import java.io.{File, PrintWriter}
+import java.text.SimpleDateFormat
+import java.util.Date
 
 import com.stockit.statistics.Statistics
+import com.stockit.client.Client
 
 import scala.collection.immutable.Iterable
 
@@ -10,6 +13,9 @@ import scala.collection.immutable.Iterable
  * Created by jmcconnell1 on 4/26/15.
  */
 object CompleteStatsExporter {
+    val dateImporter = new SimpleDateFormat("EEE MMM dd HH:mm:ss zzz yyyy");
+    val dateExporter = new SimpleDateFormat("MM/dd/yy");
+    val client = new Client
     def export(fileName: String, data: List[Statistics]) = {
         val result = csvString(data)
         val file = new PrintWriter(new File(fileName))
@@ -38,8 +44,10 @@ object CompleteStatsExporter {
             buffer.append(s"Fold $counter\n")
             var foldSize = 0
             valueByDate.foreach{ case(date, count, capture, aggCapture) =>
+                val importedDate = dateImporter.parse(date)
+                val exportedDate = dateExporter.format(importedDate)
                 if (foldSize < 255) {
-                    buffer.append(s"$date, ,$count, $capture, $aggCapture\n")
+                    buffer.append(s"$exportedDate, ,$count, $capture, $aggCapture\n")
                 }
                 foldSize += 1
             }

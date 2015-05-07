@@ -26,7 +26,8 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
             val mean = arithmeticMean(percentageChanges)
             count += 1
 
-            println(s"Calculated Prediction ${count}")
+            if (count % 100 == 0) println(s"Calculated Prediction ${count}")
+
             (date, mean)
         }).seq.toList
     }
@@ -67,9 +68,10 @@ class Predictor(searcher: Searcher, train: List[SolrDocument], test: List[SolrDo
     }
 
     def arithmeticMean[T](ts: Iterable[T])(implicit num: Numeric[T]) = {
-        val result = num.toDouble(ts.sum) / ts.size
+        var result = num.toDouble(ts.sum) / ts.size
         if (result.isNaN) {
-           throw new ArithmeticException(s"result is NaN, sum is ${ts.sum}, size is ${ts.size}")
+            println(s"result is NaN, sum is ${ts.sum}, size is ${ts.size}")
+            result = 0.0
         }
         result
     }
