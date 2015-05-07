@@ -43,15 +43,15 @@ case class SolrCacheDocumentSet(query: String, documents: List[SolrCacheDocument
                 } yield document.toXml()}</documents><date>{ dateFormat.format(new Date()) }</date></cacheEntry>
 }
 
-class FileSolrDocumentListCacheStrategy {
+class FileSolrDocumentListCacheStrategy(cacheDir: String) {
 
-    val baseDirectoryPath = "cache"
+    val baseDirectoryPath = cacheDir
 
     val baseDirectory = new File(baseDirectoryPath)
 
     var cacheInitialized = false
 
-    val cacheFileNameFormat = "solr-document-list-cache-{0}.xml"
+    val cacheFileNameFormat = "cache-entry-{0}.xml"
 
     val storedQueries = mutable.Map[String,String]()
 
@@ -86,7 +86,7 @@ class FileSolrDocumentListCacheStrategy {
 
         val queries = baseDirectory.listFiles
             .map { file =>
-                (XML.loadFile(file), file.getName())
+                (XML.loadFile(file), file.getName)
             }
             .map { tup =>
                 val el = tup._1
@@ -99,9 +99,9 @@ class FileSolrDocumentListCacheStrategy {
         cacheInitialized = true
     }
 
-    def store(query: SolrQuery, docs: List[SolrDocument]): Unit = synchronized {
+    def store(cacheKey: AnyRef, docs: List[SolrDocument]): Unit = synchronized {
 
-        val key = serializationUtil.objectToString(query)
+        val key = serializationUtil.objectToString(cacheKey)
 
         init()
 
@@ -123,9 +123,9 @@ class FileSolrDocumentListCacheStrategy {
         bufferedWriter.close
     }
 
-    def retrieve(query: SolrQuery): Option[List[SolrDocument]] = {
+    def retrieve(cacheKey: AnyRef): Option[List[SolrDocument]] = {
 
-        val key = serializationUtil.objectToString(query)
+        val key = serializationUtil.objectToString(cacheKey)
 
         if(storedQueries.contains(key)) {
             val fileName = storedQueries(key)

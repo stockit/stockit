@@ -10,8 +10,7 @@ import org.apache.solr.common.SolrDocument
  */
 class CachingClient extends Client {
 
-    var fetchCache = Map[Date, List[SolrDocument]]()
-    val neighborsCacheStrategy = new FileSolrDocumentListCacheStrategy
+    val cacheStrategy = new FileSolrDocumentListCacheStrategy("neighborsCache")
 
     override def fetch(date: Date) = {
         super.fetch(date)
@@ -19,17 +18,14 @@ class CachingClient extends Client {
 
     override def neighbors(trainDocs: List[SolrDocument], doc: SolrDocument, number: Int) = {
         val request = neighborQuery(trainDocs, doc, number)
-//        val fqString = s"${request.get(1).key}->${request.extraParams(1).value.toString}"
-//        val qString = request.getQuery
 
-        val documents = super.neighbors(trainDocs, doc, number)
-
-
-//        documents(0).getMap()
-
-//        neighborsCacheStrategy.store(fqString + "::" + qString, documents)
-
-        documents
+        cacheStrategy.retrieve(request.getParams) match {
+            case Some(documents) => documents
+            case None =>
+                val neighbors = super.neighbors(trainDocs, doc, number)
+                cacheStrategy.store(request.getParams, neighbors)
+                neighbors
+        }
     }
 
     override def minMaxDate(trainDocs: List[SolrDocument]) = {

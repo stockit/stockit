@@ -1,10 +1,12 @@
 package com.stockit
 
+import java.util.regex.Pattern
 import java.util.Date
 
 import com.stockit.cache.FileSolrDocumentListCacheStrategy
 import com.stockit.module.service.SolrClientModule
-import org.apache.solr.client.solrj.{SolrQuery, SolrClient}
+import org.apache.solr.client.solrj.request.QueryRequest
+import org.apache.solr.client.solrj.{SolrRequest, SolrQuery, SolrClient}
 import org.apache.solr.common.SolrDocument
 import scaldi.Injectable
 
@@ -45,11 +47,11 @@ object TestCache extends Injectable {
     def main(args: Array[String]): Unit = {
         implicit val module = new SolrClientModule
 
-        val cacheStrategy = new FileSolrDocumentListCacheStrategy
+        val cacheStrategy = new FileSolrDocumentListCacheStrategy("cache")
 
         val solrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articlesSolrClient)
 
-        val rows = 18792
+        val rows = 1000
         val querySize = 500
         val startValues = (0 to Math.floor(rows.toDouble / querySize).toInt).map(_ * querySize)
 
@@ -68,8 +70,11 @@ object TestCache extends Injectable {
             query.setStart(start)
             query.setRows(querySize)
 
+            val queryRequest = new QueryRequest(query)
+            val params = queryRequest.getParams
+
             val dateBeforeQuery = new Date
-            val docList = solrClient.query(query).getResults
+            val docList = solrClient.query(params).getResults
             val dateAfterQuery = new Date
 
             var documentList = new ListBuffer[SolrDocument]()
@@ -83,11 +88,11 @@ object TestCache extends Injectable {
             val docs = documentList.toList
 
             val dateBeforeStore = new Date
-            cacheStrategy.store(query, docs)
+            cacheStrategy.store(params, docs)
             val dateAfterStore = new Date
 
             val dateBeforeCacheRetrieve = new Date
-            val cachedValue = cacheStrategy.retrieve(query)
+            val cachedValue = cacheStrategy.retrieve(params)
             val dateAfterCacheRetrieve = new Date
 
             cachedValue match {
@@ -132,7 +137,10 @@ object TestCache extends Injectable {
             query.setStart(start)
             query.setRows(querySize)
 
-            val docList = solrClient.query(query).getResults
+            val queryRequest = new QueryRequest(query)
+            val params = queryRequest.getParams
+
+            val docList = solrClient.query(params).getResults
 
             var documentList = new ListBuffer[SolrDocument]()
 
@@ -143,7 +151,7 @@ object TestCache extends Injectable {
             }
 
             val docs = documentList.toList
-            val cachedValue = cacheStrategy.retrieve(query)
+            val cachedValue = cacheStrategy.retrieve(params)
 
             cachedValue match {
                 case Some(cachedDocs) =>
@@ -162,6 +170,52 @@ object TestCache extends Injectable {
         accuracy = numCorrect.toDouble / (numCorrect + numIncorrect)
         println(s"accuracy after cache: $accuracy")
 
+        val query = new SolrQuery
+        query.setQuery("*:*")
+        query.setStart(0)
+        query.setRows(1)
+
+        val doc = solrClient.query(query).getResults.get(0)
+
+        val pattern = Pattern.compile("[^\\s\\d\\w]+") // Pattern.compile("([\\\\(|\\\\)|\\\\+|\\\\-|\\\\?|\\\\*|\\\\{|\\\\}|\\\\[|\\\\]|\\\\:|\\\\~|\\\\!|\\\\^|&&|\\\"|\\\\\\\\|\\\\||\", \"\")])");
+        var queryString = doc.getFieldValue("content").toString
+        queryString = pattern.matcher(queryString).replaceAll("")
+
+        queryString = queryString.substring(0, List(200, queryString.length).min)
+
+        val neighborQuery = new SolrQuery()
+        neighborQuery.setParam("q", queryString)
+        neighborQuery.setRows(10)
+        neighborQuery.setStart(0)
+        neighborQuery.setFields("articleId","title","content","date","stockHistoryId","symbol","historyDate","open","high","low","close","adjClose","volume","id","score","_version_")
+
+        val queryRequest = new QueryRequest(neighborQuery)
+        val params = queryRequest.getParams
+
+        var documentList = new ListBuffer[SolrDocument]()
+        val docList = solrClient.query(params).getResults
+
+        val it = docList.listIterator
+
+        while(it.hasNext) {
+            documentList += it.next
+        }
+
+        val docs = documentList.toList
+
+        cacheStrategy.store(params, docs)
+
+        val cachedValue = cacheStrategy.retrieve(params)
+
+        cachedValue match {
+            case Some(cachedDocs) =>
+                if(compareDocLists(docs, cachedDocs)) {
+                    println("neighbor cache correct")
+                } else {
+                    println("neighbor cache incorrect")
+                }
+            case None => println("neighbor cache incorrect")
+        }
     }
 
 }
