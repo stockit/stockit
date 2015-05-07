@@ -16,6 +16,7 @@ libraryDependencies ++= Seq(
     "com.typesafe.slick" %% "slick" % "2.1.0",
     "org.apache.httpcomponents" % "httpcore" % "4.3",
     "org.apache.httpcomponents" % "httpclient" % "4.3",
+    "org.apache.httpcomponents" % "httpclient-cache" % "4.3",
     "org.apache.solr" % "solr-solrj" % "5.0.0",
     "org.apache.solr" % "solr-core" % "5.0.0",
     "org.slf4j" % "slf4j-api" % "1.6.4",

@@ -11,7 +11,7 @@ import org.apache.solr.common.SolrDocument
 class CachingClient extends Client {
 
     var fetchCache = Map[Date, List[SolrDocument]]()
-    val neighborsCacheStrategy = new FileSolrDocumentListCacheStrategy[String]
+    val neighborsCacheStrategy = new FileSolrDocumentListCacheStrategy
 
     override def fetch(date: Date) = {
         super.fetch(date)
