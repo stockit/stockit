@@ -47,7 +47,7 @@ object TestCache extends Injectable {
     def main(args: Array[String]): Unit = {
         implicit val module = new SolrClientModule
 
-        val cacheStrategy = new FileSolrDocumentListCacheStrategy("cache")
+        val cacheStrategy = new FileSolrDocumentListCacheStrategy("neighborsCache")
 
         val solrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articlesSolrClient)
 

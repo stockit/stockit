@@ -8,10 +8,11 @@ import com.stockit.serialization.SerializationUtil
 import org.apache.commons.lang.SerializationUtils
 import org.apache.solr.client.solrj.SolrQuery
 import org.apache.solr.common.SolrDocument
+import org.slf4j.LoggerFactory
 
 import scala.collection.JavaConverters._
 import scala.collection.mutable
-import scala.xml.{Elem, XML}
+import scala.xml.{Node, Elem, XML}
 
 case class SolrCacheDocumentField(key: String, value: AnyRef) {
     val serializationUtil = new SerializationUtil()
@@ -45,13 +46,15 @@ case class SolrCacheDocumentSet(query: String, documents: List[SolrCacheDocument
 
 class FileSolrDocumentListCacheStrategy(cacheDir: String) {
 
+    val logger = LoggerFactory.getLogger(classOf[FileSolrDocumentListCacheStrategy])
+
     val baseDirectoryPath = cacheDir
 
     val baseDirectory = new File(baseDirectoryPath)
 
     var cacheInitialized = false
 
-    val cacheFileNameFormat = "cache-entry-{0}.xml"
+    val cacheFileNameFormat = "cache-entry-%d.xml"
 
     val storedQueries = mutable.Map[String,String]()
 
@@ -73,7 +76,7 @@ class FileSolrDocumentListCacheStrategy(cacheDir: String) {
             }
 
         val id: Integer = if(ids.isEmpty) 1 else ids.max + 1
-        new File(baseDirectory, MessageFormat.format(cacheFileNameFormat, id))
+        new File(baseDirectory, String.format(cacheFileNameFormat, id))
     }
 
     private def init(): Unit = synchronized {
@@ -84,10 +87,22 @@ class FileSolrDocumentListCacheStrategy(cacheDir: String) {
             baseDirectory.mkdir
         }
 
-        val queries = baseDirectory.listFiles
+        val startLoadDate = new Date
+        logger.info("Started cache load")
+        val optionalQueries = baseDirectory.listFiles
             .map { file =>
-                (XML.loadFile(file), file.getName)
+                try {
+                    Some((XML.loadFile(file), file.getName))
+                } catch {
+                    case e: Exception => {
+                        file.delete() // The cache file was unable to be loaded.  We will remove this file
+                        None
+                    }
+                }
             }
+
+        val queries = optionalQueries
+            .flatten
             .map { tup =>
                 val el = tup._1
                 ((el \\ "cacheEntry" \\ "query").text, tup._2)
@@ -95,6 +110,10 @@ class FileSolrDocumentListCacheStrategy(cacheDir: String) {
             .foreach { tup =>
                 storedQueries += tup._1 -> tup._2
             }
+
+        val endLoadDate = new Date
+        val diff = endLoadDate.getTime - startLoadDate.getTime
+        logger.info(s"Finished cache load in [$diff ms]")
 
         cacheInitialized = true
     }
