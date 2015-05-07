@@ -39,12 +39,12 @@ object Accuracy extends App {
         val documents: List[SolrDocument] = client.sortedByDate()
         ensureOrderedDocuments(documents)
 
-        for ((segment, index) <- split(documents, 5).zipWithIndex) {
-            val train = trainGroupFold(segment, 1, 2)
-            val test = testGroupFold(segment, 1, 2)
+        for (((segment1, segment2), index) <- cutPairs(documents, 5).zipWithIndex) {
+            val train = segment1
+            val test = Random.shuffle(segment2)
 
             val (trainMin, trainMax) = minMaxDate(train)
-            val folds = testFolds(test, 5)
+            val folds = cut(test, 5)
 
             val stats = folds.zipWithIndex.map{ case(fold, index) =>
                 println(s"train.length:[${train.length}], test.length:[${fold.length}]")
@@ -94,7 +94,21 @@ object Accuracy extends App {
         folds.map((fold) => {
             fold.sortBy((doc) => {
                 client.dateOfDoc(doc)
-            }).toList
+            })
+        })
+    }
+
+    def cutPairs[T](list: List[T], groups: Int): IndexedSeq[(List[T], List[T])] = {
+        val cuts = cut(list, groups)
+        cuts.zip(cuts.tail)
+    }
+
+    def cut[T](list: List[T], groups: Int): IndexedSeq[List[T]] = {
+        var prevSplit = 0
+        (0 until groups).map((groupIdx) => {
+            val delta = Math.round((list.size - prevSplit.toDouble) / (groups - groupIdx)).asInstanceOf[Int]
+            prevSplit += delta
+            list.slice(prevSplit - delta, prevSplit)
         })
     }
 
