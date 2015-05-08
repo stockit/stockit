@@ -9,8 +9,7 @@ class WeightedPredictor(searcher: Searcher, train: List[SolrDocument], test: Lis
 
     def score(doc: SolrDocument): Double = {
         val score: Double = doc.getFieldValue("score") match {
-            case score: java.lang.Double => score
-            case _ => 0.0
+            case score: java.lang.Float => score.toDouble
         }
 
         if(score.isNaN || score.isInfinity) 0.0 else score

@@ -3,7 +3,7 @@ package com.stockit
 import java.util.Date
 
 import com.stockit.client.{CachingClient}
-import com.stockit.algorithm.{Searcher, Predictor}
+import com.stockit.algorithm.{WeightedPredictor, Searcher, Predictor}
 import com.stockit.exporters.{CompleteStatsExporter, NetCaptureExporter}
 import com.stockit.statistics.Statistics
 import org.apache.solr.common.SolrDocument
@@ -51,7 +51,7 @@ object Accuracy extends App {
                 val (foldMin, foldMax) = minMaxDate(fold)
                 println(s"train:[${trainMin}, ${trainMax}] test:[${foldMin}, ${foldMax}]")
 
-                val predictor = new Predictor(searcher = new Searcher(), train = train, test = fold)
+                val predictor = new WeightedPredictor(searcher = new Searcher(), train = train, test = fold)
                 val statistics = new Statistics(data = predictor.results)
 
                 printStats(statistics)

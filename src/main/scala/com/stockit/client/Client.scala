@@ -97,7 +97,7 @@ class Client extends Injectable {
         query.setRows(count)
         query.setStart(0)
 
-        query.setFields("articleId","title","content","date","stockHistoryId","symbol","historyDate","open","high","low","close","adjClose","volume","id","_version_")
+        query.setFields("articleId","title","content","date","stockHistoryId","symbol","historyDate","open","high","low","close","score","adjClose","volume","id","_version_")
 
         val fq =  String.format("historyDate:[%s TO %s]", formatDateForSolr(minDate, isMin = true), formatDateForSolr(maxDate, isMin = false))
         query.setFilterQueries(fq)
