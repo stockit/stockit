@@ -41,10 +41,10 @@ object Accuracy extends App {
 
         for (((segment1, segment2), index) <- cutPairs(documents, 5).zipWithIndex) {
             val train = segment1
-            val test = Random.shuffle(segment2)
+            val test = segment2
 
             val (trainMin, trainMax) = minMaxDate(train)
-            val folds = cut(test, 5)
+            val folds = testFolds(test, 5)
 
             val stats = folds.zipWithIndex.map{ case(fold, index) =>
                 println(s"train.length:[${train.length}], test.length:[${fold.length}]")

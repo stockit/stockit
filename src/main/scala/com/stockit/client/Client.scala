@@ -111,7 +111,7 @@ class Client extends Injectable {
         try {
             s"${dayFormatter.format(date)}${if(isMin) "T00:00:00Z" else "T59:59:59Z"}"
         } catch {
-            case e: Error => {
+            case e: Exception => {
                 println(s"Error: $date, $isMin")
                 throw e
             }
