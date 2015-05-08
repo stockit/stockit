@@ -22,8 +22,6 @@ class Client extends Injectable {
 
     val host = "http://solr.deepdishdev.com:8983/solr"
     val client: SolrClient = inject[SolrClient]('solrClient and 'httpSolrClient and 'articleStockSolrClient)
-    var format: SimpleDateFormat = null
-    var dayFormat: SimpleDateFormat = null
     val instanceCount = 10000
     val queryCutoff = 5000 // 100 performed better?
 
@@ -99,7 +97,7 @@ class Client extends Injectable {
         query.setRows(count)
         query.setStart(0)
 
-        query.setFields("articleId","title","content","date","stockHistoryId","symbol","historyDate","open","high","low","close","adjClose","volume","id","_version_")
+        query.setFields("articleId","title","content","date","stockHistoryId","symbol","historyDate","open","high","low","close","score","adjClose","volume","id","_version_")
 
         val fq =  String.format("historyDate:[%s TO %s]", formatDateForSolr(minDate, isMin = true), formatDateForSolr(maxDate, isMin = false))
         query.setFilterQueries(fq)
@@ -190,18 +188,14 @@ class Client extends Injectable {
         listBuffer.toList
     }
 
-    def formatter = {
-        if (format == null) {
-            format = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ssZ")
-            format.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
-        }
+    def formatter = synchronized {
+        val format = new SimpleDateFormat("yyyy-MM-dd'T'hh:mm:ssZ")
+        format.setTimeZone(new SimpleTimeZone(SimpleTimeZone.UTC_TIME, "UTC"))
         format
     }
 
-    def dayFormatter = {
-        if (dayFormat == null) {
-            dayFormat = new SimpleDateFormat("yyyy-MM-dd")
-        }
-        dayFormat
+    def dayFormatter = synchronized {
+        val format = new SimpleDateFormat("yyyy-MM-dd")
+        format
     }
 }
